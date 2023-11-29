@@ -67,11 +67,12 @@ def lz4_decompress(compressed, block_size):
 
 
 def usage():
-    print("Usage: ziso [-c level] [-m] [-t percent] [-h] infile outfile")
+    print("Usage: ziso [-c level] [-m] [-x] [-t percent] [-h] infile outfile")
     print("  -c level: 1-9 compress ISO to ZSO, use any non-zero number it has no effect")
     print("              0 decompress ZSO to ISO")
     print("  -m Use multiprocessing acceleration for compressing")
     print("  -t percent Compression Threshold (1-100)")
+    print("  -x Pad output to multiple of 2048 bytes (hdl_dump workaround)")
     print("  -a align Padding alignment 0=small/slow 6=fast/large")
     print("  -p pad Padding byte")
     print("  -h this help")
@@ -311,19 +312,25 @@ def compress_zso(fname_in, fname_out, level):
     print("ziso compress completed , total size = %8d bytes , rate %d%%" %
           (write_pos, (write_pos*100/total_bytes)))
 
+    if FILE_PADDING is True:
+        unaligned = write_pos % 2048
+        if unaligned:
+            fout.seek(0, 2)
+            fout.write(br'X' * (2048-unaligned))
+
     fin.close()
     fout.close()
 
 
 def parse_args():
-    global MP, COMPRESS_THREHOLD, DEFAULT_PADDING, DEFAULT_ALIGN
+    global MP, COMPRESS_THREHOLD, DEFAULT_PADDING, DEFAULT_ALIGN, FILE_PADDING
 
     if len(sys.argv) < 2:
         usage()
         sys.exit(-1)
 
     try:
-        optlist, args = gnu_getopt(sys.argv, "c:mt:a:p:h")
+        optlist, args = gnu_getopt(sys.argv, "c:mxt:a:p:h")
     except GetoptError as err:
         print(str(err))
         usage()
@@ -342,6 +349,8 @@ def parse_args():
             DEFAULT_ALIGN = int(a)
         elif o == '-p':
             DEFAULT_PADDING = bytes(a[0], encoding='utf8')
+        elif o == '-x':
+            FILE_PADDING = True
         elif o == '-h':
             usage()
             sys.exit(0)
